@@ -61,3 +61,7 @@ export async function getResult(file_id: string): Promise<TranscriptResult> {
 export function downloadUrl(file_id: string): string {
   return `/api/stt/download/${file_id}`
 }
+
+export function openProgressStream(file_id: string): EventSource {
+  return new EventSource(`/api/stt/stream/${file_id}`)
+}

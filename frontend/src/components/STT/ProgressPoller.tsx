@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { startTranscribe, getStatus, getResult, downloadUrl } from '../../api/stt'
+import { startTranscribe, openProgressStream, getResult, downloadUrl } from '../../api/stt'
 import type { StatusResult, TranscriptResult } from '../../api/stt'
 import './ProgressPoller.css'
 
@@ -11,49 +11,72 @@ interface Props {
   onReset: () => void
 }
 
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
+}
+
+function notifyDone() {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification('語音轉文字完成！', {
+      body: '點擊返回頁面查看結果',
+      icon: '/favicon.ico',
+    })
+  }
+}
+
 export default function ProgressPoller({ fileId, modelSize, language, includeTimestamps, onReset }: Props) {
   const [status, setStatus] = useState<StatusResult | null>(null)
   const [result, setResult] = useState<TranscriptResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startedRef = useRef(false)
+  const esRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
 
+    requestNotificationPermission()
+
     const run = async () => {
       try {
         await startTranscribe(fileId, modelSize, language, includeTimestamps)
-        poll()
       } catch (e: any) {
         setError(e.message)
+        return
+      }
+
+      const es = openProgressStream(fileId)
+      esRef.current = es
+
+      es.onmessage = async (event) => {
+        const s: StatusResult = JSON.parse(event.data)
+        setStatus(s)
+
+        if (s.status === 'completed') {
+          es.close()
+          notifyDone()
+          try {
+            const r = await getResult(fileId)
+            setResult(r)
+          } catch {
+            setError('無法取得結果')
+          }
+        } else if (s.status === 'error' || s.status === 'file_not_found') {
+          es.close()
+          setError(s.message || '轉換失敗')
+        }
+      }
+
+      es.onerror = () => {
+        es.close()
+        setError('連線中斷，請重新嘗試')
       }
     }
 
-    const poll = () => {
-      intervalRef.current = setInterval(async () => {
-        try {
-          const s = await getStatus(fileId)
-          setStatus(s)
-
-          if (s.status === 'completed') {
-            clearInterval(intervalRef.current!)
-            const r = await getResult(fileId)
-            setResult(r)
-          } else if (s.status === 'error') {
-            clearInterval(intervalRef.current!)
-            setError(s.message || '轉換失敗')
-          }
-        } catch {
-          clearInterval(intervalRef.current!)
-          setError('無法取得狀態')
-        }
-      }, 2000)
-    }
-
     run()
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    return () => { esRef.current?.close() }
   }, [fileId])
 
   const progress = status?.progress ?? 0

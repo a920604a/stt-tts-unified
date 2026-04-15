@@ -1,8 +1,9 @@
 import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..services.history_service import history_service
@@ -118,6 +119,31 @@ async def download_result(file_id: str):
         result_path,
         media_type="text/plain",
         filename=f"transcript_{file_id}.txt",
+    )
+
+
+@router.get("/stream/{file_id}")
+async def stream_progress(file_id: str):
+    """SSE endpoint — pushes status events until completed or error."""
+
+    async def event_generator():
+        while True:
+            status = await file_handler.get_processing_status(file_id)
+            data = json.dumps(status, ensure_ascii=False)
+            yield f"data: {data}\n\n"
+
+            if status["status"] in ("completed", "error", "file_not_found"):
+                break
+
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
