@@ -119,3 +119,26 @@ async def download_result(file_id: str):
         media_type="text/plain",
         filename=f"transcript_{file_id}.txt",
     )
+
+
+@router.get("/audio/{filename}")
+async def get_stt_audio(filename: str):
+    from pathlib import Path
+    safe_name = Path(filename).name  # strip path traversal
+    path = Path(file_handler.upload_dir) / safe_name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="音檔不存在")
+    suffix = path.suffix.lower()
+    media_types = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".m4a": "audio/mp4",
+        ".flac": "audio/flac",
+        ".ogg": "audio/ogg",
+        ".webm": "audio/webm",
+        ".mp4": "video/mp4",
+    }
+    return FileResponse(
+        str(path),
+        media_type=media_types.get(suffix, "application/octet-stream"),
+    )
