@@ -101,11 +101,44 @@ class HistoryService:
         return [dict(r) for r in rows]
 
     async def delete(self, record_type: str, record_id: int) -> bool:
+        from pathlib import Path
+        from ..config import get_settings
+        settings = get_settings()
+
         table = "tts_history" if record_type == "tts" else "stt_history"
+
         async with get_db() as db:
+            rows = await db.execute_fetchall(
+                f"SELECT * FROM {table} WHERE id = ?", (record_id,)
+            )
+            if not rows:
+                return False
+            row = dict(rows[0])
+
             cursor = await db.execute(f"DELETE FROM {table} WHERE id = ?", (record_id,))
             await db.commit()
-            return cursor.rowcount > 0
+            if cursor.rowcount == 0:
+                return False
+
+        def _rm(path: Path) -> None:
+            try:
+                path.unlink(missing_ok=True)
+            except Exception as exc:
+                logger.warning(f"刪除失敗 {path}: {exc}")
+
+        if record_type == "tts":
+            _rm(Path(settings.audio_dir) / row["audio_filename"])
+            if row.get("srt_filename"):
+                _rm(Path(settings.audio_dir) / row["srt_filename"])
+        else:
+            audio_filename = row["audio_filename"]
+            file_id = Path(audio_filename).stem
+            _rm(Path(settings.upload_dir) / audio_filename)
+            _rm(Path(settings.upload_dir) / f"{file_id}_metadata.json")
+            _rm(Path(settings.upload_dir) / f"{file_id}_status.json")
+            _rm(Path(settings.result_dir) / f"{file_id}_text.txt")
+
+        return True
 
 
 # Singleton
