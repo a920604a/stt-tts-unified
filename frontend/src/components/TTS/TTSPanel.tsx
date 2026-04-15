@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { listVoices, synthesize } from '../../api/tts'
 import type { Voice } from '../../api/tts'
+import { detectLocalePrefix } from '../../utils/detectLocale'
 import './TTSPanel.css'
 
 export default function TTSPanel() {
   const [voices, setVoices] = useState<Voice[]>([])
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
+  const [detectedLocale, setDetectedLocale] = useState('zh')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -21,6 +23,24 @@ export default function TTSPanel() {
       })
       .catch(() => setError('無法載入語音列表'))
   }, [])
+
+  // Debounced language detection
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDetectedLocale(detectLocalePrefix(text))
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [text])
+
+  // Auto-switch voice when detected locale changes
+  useEffect(() => {
+    if (voices.length === 0) return
+    const filtered = voices.filter(v => v.locale.startsWith(detectedLocale))
+    if (filtered.length === 0) return
+    if (!selectedVoice || !filtered.find(v => v.name === selectedVoice.name)) {
+      setSelectedVoice(filtered[0])
+    }
+  }, [detectedLocale, voices])
 
   useEffect(() => {
     if (audioUrl && audioRef.current) {
@@ -43,8 +63,7 @@ export default function TTSPanel() {
     }
   }
 
-  const zhVoices = voices.filter(v => v.locale.startsWith('zh'))
-  const otherVoices = voices.filter(v => !v.locale.startsWith('zh'))
+  const filteredVoices = voices.filter(v => v.locale.startsWith(detectedLocale))
 
   return (
     <div className="tts-panel">
@@ -75,26 +94,13 @@ export default function TTSPanel() {
           id="voice-select"
           className="select"
           value={selectedVoice?.name ?? ''}
-          onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value) ?? null)}
+          onChange={e => setSelectedVoice(filteredVoices.find(v => v.name === e.target.value) ?? null)}
         >
-          {zhVoices.length > 0 && (
-            <optgroup label="中文語音">
-              {zhVoices.map(v => (
-                <option key={v.name} value={v.name}>
-                  {v.name} ({v.gender})
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {otherVoices.length > 0 && (
-            <optgroup label="其他語音">
-              {otherVoices.map(v => (
-                <option key={v.name} value={v.name}>
-                  {v.name} ({v.locale} · {v.gender})
-                </option>
-              ))}
-            </optgroup>
-          )}
+          {filteredVoices.map(v => (
+            <option key={v.name} value={v.name}>
+              {v.name} ({v.locale} · {v.gender})
+            </option>
+          ))}
         </select>
 
         {error && <div className="alert alert-error">{error}</div>}
