@@ -43,6 +43,9 @@ export default function HistoryItem({ record, onDelete }: Props) {
           {isTTS && record.audio_filename && (
             <audio controls src={`/api/tts/audio/${record.audio_filename}`} className="history-audio" />
           )}
+          {!isTTS && record.audio_filename && (
+            <audio controls src={`/api/stt/audio/${record.audio_filename}`} className="history-audio" />
+          )}
           {!isTTS && record.transcript && (
             <div className="transcript-preview">
               <p className="transcript-text">{record.transcript}</p>
@@ -51,6 +54,11 @@ export default function HistoryItem({ record, onDelete }: Props) {
           <div className="history-actions">
             {isTTS && record.audio_filename && (
               <a href={`/api/tts/audio/${record.audio_filename}`} download className="btn btn-ghost btn-sm">
+                下載音檔
+              </a>
+            )}
+            {!isTTS && record.audio_filename && (
+              <a href={`/api/stt/audio/${record.audio_filename}`} download className="btn btn-ghost btn-sm">
                 下載音檔
               </a>
             )}
