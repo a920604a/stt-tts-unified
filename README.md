@@ -9,6 +9,16 @@
 - **歷史紀錄** — SQLite 儲存所有合成與辨識結果，支援音檔播放與下載
 - **Dark Mode** — Apple HIG 語意色彩系統，自動跟隨系統偏好
 
+## 畫面截圖
+
+| 文字轉語音（淺色） | 文字轉語音（深色） |
+|---|---|
+| ![TTS Light](docs/assets/demo_tts_light.png) | ![TTS Dark](docs/assets/demo_tts_dark.png) |
+
+| 語音轉文字 | 歷史紀錄 |
+|---|---|
+| ![STT](docs/assets/demo_stt.png) | ![History](docs/assets/demo_history.png) |
+
 ## 快速開始
 
 ### Docker（推薦）
