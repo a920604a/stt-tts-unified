@@ -2,9 +2,11 @@
 
 語音合成（TTS）與語音辨識（STT）整合平台。
 
-- **TTS** — Microsoft Edge TTS，支援多種中英文語音
-- **STT** — OpenAI Whisper 本地執行，支援上傳音檔與即時錄音
-- **歷史紀錄** — SQLite 儲存所有合成與辨識結果
+![Demo](docs/assets/demo.png)
+
+- **TTS** — Microsoft Edge TTS，322 種多語言語音，自動偵測輸入語言動態篩選
+- **STT** — OpenAI Whisper 本地執行，背景轉換、SSE 即時進度推送、完成瀏覽器通知
+- **歷史紀錄** — SQLite 儲存所有合成與辨識結果，支援音檔播放與下載
 - **Dark Mode** — Apple HIG 語意色彩系統，自動跟隨系統偏好
 
 ## 快速開始
@@ -31,7 +33,7 @@ make dev       # 啟動 backend:8000 + frontend:5173
 
 | 層級 | 技術 |
 |---|---|
-| 前端 | React 18 + Vite + TypeScript |
+| 前端 | React 19 + Vite + TypeScript |
 | 後端 | FastAPI + Uvicorn (Python 3.11) |
 | TTS 引擎 | edge-tts (Microsoft Edge Neural TTS) |
 | STT 引擎 | openai-whisper (本地執行) |
