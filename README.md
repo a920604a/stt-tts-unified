@@ -2,7 +2,6 @@
 
 語音合成（TTS）與語音辨識（STT）整合平台。
 
-![Demo](docs/assets/demo.png)
 
 - **TTS** — Microsoft Edge TTS，322 種多語言語音，自動偵測輸入語言動態篩選
 - **STT** — OpenAI Whisper 本地執行，背景轉換、SSE 即時進度推送、完成瀏覽器通知
