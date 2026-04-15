@@ -18,6 +18,7 @@ dependencies = [
     "scipy",
     "ffmpeg-python==0.2.0",
     "transformers>=4.19.0",
+    "pillow>=12.2.0",
 ]
 
 [tool.uv.sources]
