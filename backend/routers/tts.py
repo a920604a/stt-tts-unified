@@ -12,9 +12,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class VoiceInfo(BaseModel):
+    name: str
+    gender: str
+    locale: str
+
+
 class SynthesizeRequest(BaseModel):
     text: str
-    voice: str = "zh-TW-YunJheNeural"
+    voice: VoiceInfo = VoiceInfo(name="zh-TW-YunJheNeural", gender="Male", locale="zh-TW")
 
 
 @router.get("/voices")
@@ -28,12 +34,7 @@ async def synthesize(req: SynthesizeRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="請提供文本內容")
 
-    voices = await tts_service.list_voices()
-    valid = [v["name"] for v in voices]
-    if req.voice not in valid:
-        raise HTTPException(status_code=400, detail="無效的語音選擇")
-
-    audio_filename, srt_filename = await tts_service.synthesize(req.text, req.voice)
+    audio_filename, srt_filename = await tts_service.synthesize(req.text, req.voice.name)
 
     history_id = await history_service.add_tts(
         text=req.text,
