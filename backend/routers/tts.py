@@ -38,7 +38,7 @@ async def synthesize(req: SynthesizeRequest):
 
     history_id = await history_service.add_tts(
         text=req.text,
-        voice=req.voice,
+        voice=req.voice.name,
         audio_filename=audio_filename,
         srt_filename=srt_filename,
     )

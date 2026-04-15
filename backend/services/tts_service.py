@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import os
@@ -5,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import edge_tts
+from edge_tts.exceptions import NoAudioReceived
 
 from ..config import get_settings
 
@@ -36,16 +38,30 @@ class TTSService:
         Returns (audio_filename, srt_filename).
         """
         text = text.strip()
-        communicate = edge_tts.Communicate(text, voice)
-        submaker = edge_tts.SubMaker()
 
-        with io.BytesIO() as buf:
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    buf.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    submaker.feed(chunk)
-            audio_bytes = buf.getvalue()
+        audio_bytes = b""
+        submaker = edge_tts.SubMaker()
+        last_exc: Exception | None = None
+
+        for attempt in range(3):
+            if attempt > 0:
+                await asyncio.sleep(attempt * 2)
+                logger.warning(f"TTS retry {attempt}/2 for voice={voice}")
+            try:
+                communicate = edge_tts.Communicate(text, voice)
+                submaker = edge_tts.SubMaker()
+                with io.BytesIO() as buf:
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            buf.write(chunk["data"])
+                        elif chunk["type"] == "WordBoundary":
+                            submaker.feed(chunk)
+                    audio_bytes = buf.getvalue()
+                break
+            except NoAudioReceived as exc:
+                last_exc = exc
+        else:
+            raise last_exc
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         audio_filename = f"tts_{timestamp}.wav"
