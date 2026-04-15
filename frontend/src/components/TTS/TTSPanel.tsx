@@ -5,7 +5,7 @@ import './TTSPanel.css'
 
 export default function TTSPanel() {
   const [voices, setVoices] = useState<Voice[]>([])
-  const [selectedVoice, setSelectedVoice] = useState('zh-TW-YunJheNeural')
+  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -14,7 +14,11 @@ export default function TTSPanel() {
 
   useEffect(() => {
     listVoices()
-      .then(v => { setVoices(v) })
+      .then(loaded => {
+        setVoices(loaded)
+        const def = loaded.find(v => v.name === 'zh-TW-YunJheNeural') ?? loaded[0] ?? null
+        setSelectedVoice(def)
+      })
       .catch(() => setError('無法載入語音列表'))
   }, [])
 
@@ -25,7 +29,7 @@ export default function TTSPanel() {
   }, [audioUrl])
 
   const handleSynthesize = async () => {
-    if (!text.trim()) return
+    if (!text.trim() || !selectedVoice) return
     setLoading(true)
     setError(null)
     setAudioUrl(null)
@@ -70,8 +74,8 @@ export default function TTSPanel() {
         <select
           id="voice-select"
           className="select"
-          value={selectedVoice}
-          onChange={e => setSelectedVoice(e.target.value)}
+          value={selectedVoice?.name ?? ''}
+          onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value) ?? null)}
         >
           {zhVoices.length > 0 && (
             <optgroup label="中文語音">
@@ -98,7 +102,7 @@ export default function TTSPanel() {
         <button
           className="btn btn-primary tts-submit"
           onClick={handleSynthesize}
-          disabled={loading || !text.trim()}
+          disabled={loading || !text.trim() || !selectedVoice}
         >
           {loading ? (
             <><span className="spinner" />合成中...</>

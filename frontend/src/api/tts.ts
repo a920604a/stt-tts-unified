@@ -16,7 +16,7 @@ export async function listVoices(): Promise<Voice[]> {
   return res.json()
 }
 
-export async function synthesize(text: string, voice: string): Promise<SynthesizeResult> {
+export async function synthesize(text: string, voice: Voice): Promise<SynthesizeResult> {
   const res = await fetch('/api/tts/synthesize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
