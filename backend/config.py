@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     # TTS
     default_tts_voice: str = "zh-TW-YunJheNeural"
 
-    # Dev
-    dev_mode: bool = False
+    # CORS
+    cors_allow_origins: str = "http://localhost:5173,http://backend:8000"
 
     class Config:
         env_file = ".env"
@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     def ensure_dirs(self) -> None:
         for d in [self.upload_dir, self.result_dir, self.audio_dir]:
             Path(d).mkdir(parents=True, exist_ok=True)
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
 
 
 @lru_cache

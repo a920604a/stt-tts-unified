@@ -5,11 +5,13 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..services.history_service import history_service
 from ..services.tts_service import tts_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+settings = get_settings()
 
 
 class VoiceInfo(BaseModel):
@@ -20,7 +22,7 @@ class VoiceInfo(BaseModel):
 
 class SynthesizeRequest(BaseModel):
     text: str
-    voice: VoiceInfo = VoiceInfo(name="zh-TW-YunJheNeural", gender="Male", locale="zh-TW")
+    voice: str | VoiceInfo | None = None
 
 
 @router.get("/voices")
@@ -34,11 +36,16 @@ async def synthesize(req: SynthesizeRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="請提供文本內容")
 
-    audio_filename, srt_filename = await tts_service.synthesize(req.text, req.voice.name)
+    voice_name = (
+        settings.default_tts_voice
+        if req.voice is None
+        else req.voice.name if isinstance(req.voice, VoiceInfo) else req.voice
+    )
+    audio_filename, srt_filename = await tts_service.synthesize(req.text, voice_name)
 
     history_id = await history_service.add_tts(
         text=req.text,
-        voice=req.voice.name,
+        voice=voice_name,
         audio_filename=audio_filename,
         srt_filename=srt_filename,
     )

@@ -30,11 +30,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="STT-TTS Unified", version="1.0.0", lifespan=lifespan)
 
-# CORS only for local dev (frontend runs on :5173, backend on :8000)
-if settings.dev_mode:
+# CORS configured via .env / settings
+if settings.cors_origins_list:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173"],
+        allow_origins=settings.cors_origins_list,
         allow_methods=["*"],
         allow_headers=["*"],
     )
