@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     default_tts_voice: str = "zh-TW-YunJheNeural"
 
     # CORS
-    cors_allow_origins: str = "http://localhost:5173,http://backend:8000"
+    cors_allow_origins: str = "*"
 
     class Config:
         env_file = ".env"
