@@ -27,12 +27,12 @@
 ┌──────────────────────────▼──────────────────────────────────────┐
 │  FastAPI（Python 3.11）                                          │
 │                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│  │ /api/tts/*  │  │ /api/stt/*  │  │    /api/history/*       │ │
-│  │             │  │             │  │                         │ │
-│  │ TTSService  │  │WhisperSvc   │  │   HistoryService        │ │
-│  │             │  │FileHandler  │  │   (SQLite CRUD)         │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐ │
+│  │ /api/tts/*  │  │ /api/stt/*  │  │/api/settings │  │  /api/history/*    │ │
+│  │             │  │             │  │              │  │                    │ │
+│  │ TTSService  │  │WhisperSvc   │  │SettingsSvc   │  │  HistoryService    │ │
+│  │             │  │FileHandler  │  │(SQLite KV)   │  │  (SQLite CRUD)     │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬───────┘  └──────────┬─────────┘ │
 │         │                │                     │                │
 │  ┌──────▼──────┐  ┌──────▼──────────────┐  ┌──▼─────────────┐  │
 │  │  edge-tts   │  │  openai-whisper      │  │  SQLite        │  │
@@ -119,7 +119,19 @@ CREATE TABLE stt_history (
     language          TEXT    NOT NULL,  -- auto/zh/en/...
     processing_time   REAL               -- 秒數
 );
+
+-- 應用程式設定（key-value）
+CREATE TABLE app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 ```
+
+目前支援的設定 key：
+
+| Key | 說明 | 預設值（config.py） |
+|---|---|---|
+| `default_tts_voice` | 合成時未指定 voice 的預設語音 | `zh-TW-HsiaoChenNeural` |
 
 ### 檔案結構（執行期）
 
@@ -198,6 +210,7 @@ Stage 2: python:3.11-slim
 |---|---|---|
 | STT 即時錄音方式 | 完整錄音後 POST | Whisper 不支援 streaming inference |
 | 歷史儲存 | SQLite (aiosqlite) | 單檔、異步、可查詢，不需獨立 DB server |
+| 設定儲存 | SQLite app_settings（KV）| 與現有 DB 合一，重啟後仍生效，不需另起服務 |
 | Whisper 異步 | run_in_executor | CPU-bound，必須離開 event loop |
 | 前端框架 | React + Vite | 生態成熟，Vite 建置快速 |
 | 後端框架 | 單一 FastAPI | 兩個原 repo 都是 FastAPI，合併最自然 |

@@ -29,9 +29,14 @@ Base URL（本地）：`http://localhost:8080`
 ```json
 {
   "text": "你好，世界！",
-  "voice": "zh-TW-YunJheNeural"
+  "voice": { "name": "zh-TW-YunJheNeural", "gender": "Male", "locale": "zh-TW" }
 }
 ```
+
+`voice` 接受三種格式：
+- 物件 `{ name, gender, locale }` — 前端標準格式
+- 字串 `"zh-TW-YunJheNeural"` — 直接指定語音名稱
+- `null` / 省略 — 使用 `/api/settings` 中儲存的 `default_tts_voice`
 
 **Response 200**
 ```json
@@ -180,6 +185,43 @@ Base URL（本地）：`http://localhost:8080`
 ### `GET /api/stt/download/{file_id}`
 
 下載轉換結果為 `.txt` 純文字檔。
+
+---
+
+## 設定 `/api/settings`
+
+### `GET /api/settings`
+
+取得目前套用的設定值。若資料庫中尚未覆寫，回傳 `.env` / `config.py` 的預設值。
+
+**Response 200**
+```json
+{
+  "default_tts_voice": "zh-TW-HsiaoChenNeural"
+}
+```
+
+---
+
+### `PATCH /api/settings`
+
+更新一個或多個設定，並回傳更新後的完整設定。
+
+**Request Body**（所有欄位皆可選）
+```json
+{
+  "default_tts_voice": "zh-TW-YunJheNeural"
+}
+```
+
+**Response 200**
+```json
+{
+  "default_tts_voice": "zh-TW-YunJheNeural"
+}
+```
+
+設定持久化於 SQLite `app_settings` table，重啟後仍生效。
 
 ---
 

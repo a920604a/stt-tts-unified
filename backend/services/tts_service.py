@@ -76,6 +76,26 @@ class TTSService:
     def get_audio_path(self, filename: str) -> Path:
         return self.audio_dir / filename
 
+    async def stream_audio(self, text: str, voice: str):
+        """
+        Yield raw audio chunks from edge_tts for streaming playback.
+        Retries up to 3 times on failure.
+        """
+        text = text.strip()
+        for attempt in range(3):
+            if attempt > 0:
+                await asyncio.sleep(attempt * 2)
+                logger.warning(f"TTS stream retry {attempt}/2 for voice={voice}")
+            try:
+                communicate = edge_tts.Communicate(text, voice)
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        yield chunk["data"]
+                return
+            except Exception as exc:
+                last_exc = exc
+        logger.error(f"TTS stream failed after 3 attempts: {last_exc}")
+
 
 # Singleton
 tts_service = TTSService()

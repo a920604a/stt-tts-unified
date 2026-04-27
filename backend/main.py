@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .database import init_db
 from .routers import history, stt, tts
+from .routers import settings as settings_router
 from .services.whisper_service import whisper_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
@@ -43,6 +44,7 @@ if settings.cors_origins_list:
 app.include_router(tts.router, prefix="/api/tts", tags=["TTS"])
 app.include_router(stt.router, prefix="/api/stt", tags=["STT"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
+app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
 
 # Serve React build — MUST be last
 _frontend = Path(settings.frontend_build_dir)

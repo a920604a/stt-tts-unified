@@ -37,5 +37,10 @@ async def init_db() -> None:
                 language          TEXT    NOT NULL,
                 processing_time   REAL
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
         """)
         await db.commit()

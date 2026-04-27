@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     default_whisper_model: str = "base"
 
     # TTS
-    default_tts_voice: str = "zh-TW-YunJheNeural"
+    default_tts_voice: str = "zh-TW-HsiaoChenNeural"
 
     # CORS
     cors_allow_origins: str = "*"

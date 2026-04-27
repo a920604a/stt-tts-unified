@@ -2,16 +2,17 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..config import get_settings
 from ..services.history_service import history_service
+from ..services.settings_service import settings_service
 from ..services.tts_service import tts_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-settings = get_settings()
+_config = get_settings()
 
 
 class VoiceInfo(BaseModel):
@@ -22,7 +23,7 @@ class VoiceInfo(BaseModel):
 
 class SynthesizeRequest(BaseModel):
     text: str
-    voice: str | VoiceInfo | None = None
+    voice: VoiceInfo | str | None = None
 
 
 @router.get("/voices")
@@ -36,11 +37,13 @@ async def synthesize(req: SynthesizeRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="請提供文本內容")
 
-    voice_name = (
-        settings.default_tts_voice
-        if req.voice is None
-        else req.voice.name if isinstance(req.voice, VoiceInfo) else req.voice
-    )
+    if req.voice is None:
+        voice_name = await settings_service.get("default_tts_voice", _config.default_tts_voice)
+    elif isinstance(req.voice, VoiceInfo):
+        voice_name = req.voice.name
+    else:
+        voice_name = req.voice
+
     audio_filename, srt_filename = await tts_service.synthesize(req.text, voice_name)
 
     history_id = await history_service.add_tts(
@@ -55,6 +58,24 @@ async def synthesize(req: SynthesizeRequest):
         "srt_url": f"/api/tts/audio/{srt_filename}",
         "history_id": history_id,
     }
+
+
+@router.post("/stream")
+async def stream(req: SynthesizeRequest):
+    """Stream audio chunks directly as audio/mpeg for real-time playback."""
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="請提供文本內容")
+
+    if req.voice is None:
+        voice_name = await settings_service.get("default_tts_voice", _config.default_tts_voice)
+    elif isinstance(req.voice, VoiceInfo):
+        voice_name = req.voice.name
+    else:
+        voice_name = req.voice
+    return StreamingResponse(
+        tts_service.stream_audio(req.text, voice_name),
+        media_type="audio/mpeg",
+    )
 
 
 @router.get("/audio/{filename}")
