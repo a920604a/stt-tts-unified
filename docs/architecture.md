@@ -30,14 +30,21 @@
 │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐ │
 │  │ /api/tts/*  │  │ /api/stt/*  │  │/api/settings │  │  /api/history/*    │ │
 │  │             │  │             │  │              │  │                    │ │
-│  │ TTSService  │  │WhisperSvc   │  │SettingsSvc   │  │  HistoryService    │ │
-│  │             │  │FileHandler  │  │(SQLite KV)   │  │  (SQLite CRUD)     │ │
+│  │ get_tts_    │  │ get_stt_    │  │SettingsSvc   │  │  HistoryService    │ │
+│  │ engine()    │  │ engine()    │  │(SQLite KV)   │  │  (SQLite CRUD)     │ │
+│  │ factory     │  │ FileHandler │  │              │  │                    │ │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬───────┘  └──────────┬─────────┘ │
 │         │                │                     │                │
 │  ┌──────▼──────┐  ┌──────▼──────────────┐  ┌──▼─────────────┐  │
-│  │  edge-tts   │  │  openai-whisper      │  │  SQLite        │  │
-│  │ (cloud TTS) │  │  (local inference)   │  │  history.db    │  │
-│  └─────────────┘  └─────────────────────┘  └────────────────┘  │
+│  │EdgeTTSEngine│  │  WhisperEngine       │  │  SQLite        │  │
+│  │(TTSEngine   │  │  (STTEngine Protocol)│  │  history.db    │  │
+│  │ Protocol)   │  │  (local inference)   │  │                │  │
+│  └──────┬──────┘  └─────────────────────┘  └────────────────┘  │
+│         │                                                        │
+│  ┌──────▼──────┐                                                 │
+│  │  edge-tts   │                                                 │
+│  │ (cloud TTS) │                                                 │
+│  └─────────────┘                                                 │
 │                                                                 │
 │  StaticFiles → frontend/dist（React build）                     │
 └─────────────────────────────────────────────────────────────────┘
@@ -49,11 +56,12 @@
 
 ```
 用戶輸入文字 → POST /api/tts/synthesize
-  → TTSService.synthesize(text, voice)
-    → edge_tts.Communicate().stream()    # 串流到 Microsoft 伺服器
+  → get_tts_engine()                      # factory 依 config.tts.engine 回傳引擎
+  → EdgeTTSEngine.synthesize(text, voice)
+    → edge_tts.Communicate().stream()     # 串流到 Microsoft 伺服器
     → 寫入 data/audio/tts_*.wav + .srt
-    → HistoryService.add_tts()           # 寫入 SQLite
-  → 回傳 { audio_url, history_id }
+    → HistoryService.add_tts()            # 寫入 SQLite
+  → 回傳 { audio_url, srt_url, history_id }
 → 前端 <audio src=audio_url> 播放
 ```
 
@@ -65,11 +73,11 @@
   → 回傳 { file_id }
 
 → POST /api/stt/transcribe
-  → asyncio.create_task(whisper_service.transcribe(...))  # 非阻塞背景任務
+  → asyncio.create_task(_run_transcription(...))  # 非阻塞背景任務
   → 立即回傳 { success: true }
 
-→ 前端每 2 秒 GET /api/stt/status/{file_id}
-  → WhisperService 更新 status JSON 檔
+→ 前端 GET /api/stt/stream/{file_id}（SSE，event-stream）
+  → 每秒推送 { status, progress, stage, message }
   → status: processing → completed
 
 → GET /api/stt/result/{file_id}
@@ -129,7 +137,7 @@ CREATE TABLE app_settings (
 
 目前支援的設定 key：
 
-| Key | 說明 | 預設值（config.py） |
+| Key | 說明 | 預設值（config.yaml） |
 |---|---|---|
 | `default_tts_voice` | 合成時未指定 voice 的預設語音 | `zh-TW-HsiaoChenNeural` |
 
@@ -216,3 +224,6 @@ Stage 2: python:3.11-slim
 | 後端框架 | 單一 FastAPI | 兩個原 repo 都是 FastAPI，合併最自然 |
 | Docker 策略 | Multi-stage 單 container | 規模不需微服務，部署最簡單 |
 | CSS 架構 | CSS Variables（Apple HIG）| 無額外依賴，原生 dark mode 支援 |
+| 設定格式 | config.yaml + env var 覆蓋 | 階層式比 .env 更易讀；env var 優先保留 Docker/CI 相容性 |
+| 引擎架構 | Protocol + Factory | 貢獻者可新增引擎不碰現有 service 邏輯；型別安全 |
+| STT 進度推送 | SSE（event-stream）| 單向推送、不需 WebSocket、天然支援瀏覽器 EventSource |

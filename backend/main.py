@@ -10,7 +10,7 @@ from .config import get_settings
 from .database import init_db
 from .routers import history, stt, tts
 from .routers import settings as settings_router
-from .services.whisper_service import whisper_service
+from .services.engine_factory import get_stt_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -23,7 +23,8 @@ async def lifespan(app: FastAPI):
     # Startup
     settings.ensure_dirs()
     await init_db()
-    await whisper_service.load_model(settings.default_whisper_model)
+    engine = get_stt_engine()
+    await engine.load_model(settings.stt.whisper.model)
     logger.info("STT-TTS Unified ready")
     yield
     # Shutdown (nothing needed)
@@ -31,11 +32,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="STT-TTS Unified", version="1.0.0", lifespan=lifespan)
 
-# CORS configured via .env / settings
-if settings.cors_origins_list:
+if settings.server.cors_origins:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=settings.server.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

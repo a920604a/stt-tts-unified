@@ -18,9 +18,9 @@ _settings = get_settings()
 
 class FileHandler:
     def __init__(self):
-        self.upload_dir = _settings.upload_dir
-        self.result_dir = _settings.result_dir
-        self.max_file_size = _settings.max_file_size_mb * 1024 * 1024
+        self.upload_dir = _settings.storage.upload_dir
+        self.result_dir = _settings.storage.result_dir
+        self.max_file_size = _settings.storage.max_file_size_mb * 1024 * 1024
 
         os.makedirs(self.upload_dir, exist_ok=True)
         os.makedirs(self.result_dir, exist_ok=True)

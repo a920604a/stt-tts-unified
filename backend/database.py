@@ -10,13 +10,13 @@ _settings = get_settings()
 
 @asynccontextmanager
 async def get_db() -> AsyncIterator[aiosqlite.Connection]:
-    async with aiosqlite.connect(_settings.db_path) as db:
+    async with aiosqlite.connect(_settings.storage.db_path) as db:
         db.row_factory = aiosqlite.Row
         yield db
 
 
 async def init_db() -> None:
-    async with aiosqlite.connect(_settings.db_path) as db:
+    async with aiosqlite.connect(_settings.storage.db_path) as db:
         await db.executescript("""
             CREATE TABLE IF NOT EXISTS tts_history (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,

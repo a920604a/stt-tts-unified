@@ -1,5 +1,11 @@
-# Data (user uploads, results, audio, DB)
-data/
+# Data - ignore contents but preserve directory structure
+data/uploads/*
+!data/uploads/.gitkeep
+data/results/*
+!data/results/.gitkeep
+data/audio/*
+!data/audio/.gitkeep
+data/*.db
 
 # Python
 __pycache__/
@@ -7,6 +13,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+frontend/.venv/
 *.egg-info/
 
 # Node
@@ -20,5 +27,5 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-data/
 whisper-cache/
+data/

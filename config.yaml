@@ -1,0 +1,25 @@
+server:
+  cors_origins:
+    - "*"
+  log_level: info
+
+storage:
+  upload_dir: data/uploads
+  result_dir: data/results
+  audio_dir: data/audio
+  db_path: data/history.db
+  max_file_size_mb: 500
+
+stt:
+  engine: whisper
+  whisper:
+    model: base        # tiny | base | small | medium | large
+    device: cpu        # cpu | cuda | mps
+    language: auto     # auto or ISO 639-1 code, e.g. zh, en
+
+tts:
+  engine: edge-tts
+  edge_tts:
+    default_voice: zh-TW-HsiaoChenNeural
+    retry_count: 3
+    retry_delay_seconds: 2

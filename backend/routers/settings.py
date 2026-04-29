@@ -15,7 +15,7 @@ class SettingsPatch(BaseModel):
 async def _current() -> dict:
     saved = await settings_service.get_all()
     return {
-        "default_tts_voice": saved.get("default_tts_voice", _config.default_tts_voice),
+        "default_tts_voice": saved.get("default_tts_voice", _config.tts.edge_tts.default_voice),
     }
 
 

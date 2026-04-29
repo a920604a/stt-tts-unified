@@ -1,52 +1,52 @@
 import asyncio
 import io
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
 import edge_tts
 from edge_tts.exceptions import NoAudioReceived
 
-from ..config import get_settings
-
 logger = logging.getLogger(__name__)
 
-_settings = get_settings()
-
-AVAILABLE_VOICES_CACHE: list[dict] | None = None
+_VOICES_CACHE: list[dict] | None = None
 
 
-class TTSService:
-    def __init__(self):
-        self.audio_dir = Path(_settings.audio_dir)
+class EdgeTTSEngine:
+    def __init__(
+        self,
+        audio_dir: str = "data/audio",
+        default_voice: str = "zh-TW-HsiaoChenNeural",
+        retry_count: int = 3,
+        retry_delay_seconds: int = 2,
+    ):
+        self.audio_dir = Path(audio_dir)
         self.audio_dir.mkdir(parents=True, exist_ok=True)
+        self.default_voice = default_voice
+        self.retry_count = retry_count
+        self.retry_delay_seconds = retry_delay_seconds
 
     async def list_voices(self) -> list[dict]:
-        global AVAILABLE_VOICES_CACHE
-        if AVAILABLE_VOICES_CACHE is None:
+        global _VOICES_CACHE
+        if _VOICES_CACHE is None:
             voices = await edge_tts.list_voices()
-            AVAILABLE_VOICES_CACHE = [
-                {"name": v["Name"], "gender": v["Gender"], "locale": v["Locale"]}
+            _VOICES_CACHE = [
+                {"name": v["ShortName"], "gender": v["Gender"], "locale": v["Locale"]}
                 for v in voices
             ]
-        return AVAILABLE_VOICES_CACHE
+        return _VOICES_CACHE
 
     async def synthesize(self, text: str, voice: str) -> tuple[str, str]:
-        """
-        Synthesize text to WAV + SRT.
-        Returns (audio_filename, srt_filename).
-        """
         text = text.strip()
 
         audio_bytes = b""
         submaker = edge_tts.SubMaker()
         last_exc: Exception | None = None
 
-        for attempt in range(3):
+        for attempt in range(self.retry_count):
             if attempt > 0:
-                await asyncio.sleep(attempt * 2)
-                logger.warning(f"TTS retry {attempt}/2 for voice={voice}")
+                await asyncio.sleep(attempt * self.retry_delay_seconds)
+                logger.warning(f"TTS retry {attempt}/{self.retry_count - 1} for voice={voice}")
             try:
                 communicate = edge_tts.Communicate(text, voice)
                 submaker = edge_tts.SubMaker()
@@ -77,15 +77,12 @@ class TTSService:
         return self.audio_dir / filename
 
     async def stream_audio(self, text: str, voice: str):
-        """
-        Yield raw audio chunks from edge_tts for streaming playback.
-        Retries up to 3 times on failure.
-        """
         text = text.strip()
-        for attempt in range(3):
+        last_exc: Exception | None = None
+        for attempt in range(self.retry_count):
             if attempt > 0:
-                await asyncio.sleep(attempt * 2)
-                logger.warning(f"TTS stream retry {attempt}/2 for voice={voice}")
+                await asyncio.sleep(attempt * self.retry_delay_seconds)
+                logger.warning(f"TTS stream retry {attempt}/{self.retry_count - 1} for voice={voice}")
             try:
                 communicate = edge_tts.Communicate(text, voice)
                 async for chunk in communicate.stream():
@@ -94,8 +91,4 @@ class TTSService:
                 return
             except Exception as exc:
                 last_exc = exc
-        logger.error(f"TTS stream failed after 3 attempts: {last_exc}")
-
-
-# Singleton
-tts_service = TTSService()
+        logger.error(f"TTS stream failed after {self.retry_count} attempts: {last_exc}")

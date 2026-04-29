@@ -1,7 +1,11 @@
 # API 文件
 
-Base URL（本地）：`http://localhost:8080`  
-互動式文件：`http://localhost:8080/docs`（Swagger UI）
+| 環境 | Base URL |
+|---|---|
+| 本地開發（`make dev`） | `http://localhost:8000` |
+| Docker（`make up`） | `http://localhost:8008` |
+
+互動式文件：`{BASE_URL}/docs`（Swagger UI）
 
 ---
 
@@ -51,6 +55,16 @@ Base URL（本地）：`http://localhost:8080`
 | Code | 說明 |
 |---|---|
 | 400 | 文字為空 或 語音名稱無效 |
+
+---
+
+### `POST /api/tts/stream`
+
+即時串流 TTS 音訊（`audio/mpeg`），適合低延遲播放，不寫入檔案也不記錄歷史。
+
+**Request Body**：同 `/api/tts/synthesize`
+
+**Response**：`audio/mpeg` 串流
 
 ---
 
@@ -137,9 +151,19 @@ Base URL（本地）：`http://localhost:8080`
 
 ---
 
+### `GET /api/stt/stream/{file_id}`
+
+SSE 端點，持續推送進度事件直到轉換完成或失敗。前端使用 `EventSource` 接收。
+
+**Response** `text/event-stream`
+
+每個事件 `data:` 欄位為 JSON，格式與 `/api/stt/status/{file_id}` 相同。當 `status` 為 `completed`、`error` 或 `file_not_found` 時，串流結束。
+
+---
+
 ### `GET /api/stt/status/{file_id}`
 
-輪詢轉換進度（建議每 2 秒查詢一次）。
+輪詢轉換進度（當不支援 EventSource 時的備用方案）。
 
 **Response 200**
 ```json

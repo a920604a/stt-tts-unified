@@ -1,13 +1,16 @@
 import asyncio
 import json
 import logging
+import time
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from ..config import get_settings
+from ..services.engine_factory import get_stt_engine
 from ..services.history_service import history_service
-from ..services.whisper_service import whisper_service
 from ..utils.file_handler import FileHandler
 
 logger = logging.getLogger(__name__)
@@ -41,14 +44,12 @@ async def list_models():
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    from pathlib import Path
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"不支援的檔案格式: {ext}")
 
     content = await file.read()
-    max_bytes = file_handler.max_file_size
-    if len(content) > max_bytes:
+    if len(content) > file_handler.max_file_size:
         raise HTTPException(status_code=413, detail="檔案超過大小限制")
 
     file_id = await file_handler.save_upload(file, content)
@@ -62,6 +63,58 @@ async def upload_file(file: UploadFile = File(...)):
     }
 
 
+async def _run_transcription(
+    file_id: str,
+    model_size: str,
+    language: str,
+    include_timestamps: bool,
+) -> None:
+    start_time = time.time()
+    settings = get_settings()
+    engine = get_stt_engine()
+
+    try:
+        await file_handler.update_processing_status(
+            file_id, "processing", 10, "載入模型", "正在準備 Whisper 模型..."
+        )
+
+        file_path = await file_handler.get_file_path(file_id)
+
+        await file_handler.update_processing_status(
+            file_id, "processing", 40, "語音識別", "正在轉換音頻..."
+        )
+
+        result = await engine.transcribe(file_path, model_size, language, include_timestamps)
+        processing_time = time.time() - start_time
+
+        result_path = Path(settings.storage.result_dir) / f"{file_id}_text.txt"
+        result_path.write_text(result["text"], encoding="utf-8")
+
+        await file_handler.update_processing_status(
+            file_id, "completed", 100, "完成", "轉換完成",
+            processing_time=processing_time,
+        )
+
+        original_filename = await file_handler.get_original_filename(file_id)
+        stored_filename = await file_handler.get_stored_filename(file_id)
+        await history_service.add_stt(
+            original_filename=original_filename,
+            audio_filename=stored_filename,
+            transcript=result["text"],
+            model_size=model_size,
+            language=language,
+            processing_time=processing_time,
+        )
+
+        logger.info(f"轉換完成 {file_id}: {processing_time:.1f}s")
+
+    except Exception as e:
+        logger.error(f"轉換失敗 {file_id}: {e}")
+        await file_handler.update_processing_status(
+            file_id, "error", 0, "錯誤", str(e)
+        )
+
+
 @router.post("/transcribe")
 async def start_transcribe(req: TranscribeRequest):
     if not await file_handler.file_exists(req.file_id):
@@ -71,13 +124,7 @@ async def start_transcribe(req: TranscribeRequest):
         raise HTTPException(status_code=400, detail="無效的模型")
 
     asyncio.create_task(
-        whisper_service.transcribe(
-            file_id=req.file_id,
-            model_size=req.model_size,
-            language=req.language,
-            include_timestamps=req.include_timestamps,
-            history_service=history_service,
-        )
+        _run_transcription(req.file_id, req.model_size, req.language, req.include_timestamps)
     )
 
     return {"success": True, "file_id": req.file_id}
@@ -98,13 +145,10 @@ async def get_result(file_id: str):
     with open(result_path, "r", encoding="utf-8") as f:
         text = f.read()
 
-    words = len(text.split())
-    chars = len(text)
-
     return {
         "text": text,
-        "word_count": words,
-        "char_count": chars,
+        "word_count": len(text.split()),
+        "char_count": len(text),
     }
 
 
@@ -149,8 +193,7 @@ async def stream_progress(file_id: str):
 
 @router.get("/audio/{filename}")
 async def get_stt_audio(filename: str):
-    from pathlib import Path
-    safe_name = Path(filename).name  # strip path traversal
+    safe_name = Path(filename).name
     path = Path(file_handler.upload_dir) / safe_name
     if not path.exists():
         raise HTTPException(status_code=404, detail="音檔不存在")

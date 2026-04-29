@@ -6,9 +6,9 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..config import get_settings
+from ..services.engine_factory import get_tts_engine
 from ..services.history_service import history_service
 from ..services.settings_service import settings_service
-from ..services.tts_service import tts_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,7 +28,7 @@ class SynthesizeRequest(BaseModel):
 
 @router.get("/voices")
 async def list_voices():
-    voices = await tts_service.list_voices()
+    voices = await get_tts_engine().list_voices()
     return JSONResponse(content=voices)
 
 
@@ -37,14 +37,18 @@ async def synthesize(req: SynthesizeRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="請提供文本內容")
 
+    engine = get_tts_engine()
+
     if req.voice is None:
-        voice_name = await settings_service.get("default_tts_voice", _config.default_tts_voice)
+        voice_name = await settings_service.get(
+            "default_tts_voice", _config.tts.edge_tts.default_voice
+        )
     elif isinstance(req.voice, VoiceInfo):
         voice_name = req.voice.name
     else:
         voice_name = req.voice
 
-    audio_filename, srt_filename = await tts_service.synthesize(req.text, voice_name)
+    audio_filename, srt_filename = await engine.synthesize(req.text, voice_name)
 
     history_id = await history_service.add_tts(
         text=req.text,
@@ -66,21 +70,26 @@ async def stream(req: SynthesizeRequest):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="請提供文本內容")
 
+    engine = get_tts_engine()
+
     if req.voice is None:
-        voice_name = await settings_service.get("default_tts_voice", _config.default_tts_voice)
+        voice_name = await settings_service.get(
+            "default_tts_voice", _config.tts.edge_tts.default_voice
+        )
     elif isinstance(req.voice, VoiceInfo):
         voice_name = req.voice.name
     else:
         voice_name = req.voice
+
     return StreamingResponse(
-        tts_service.stream_audio(req.text, voice_name),
+        engine.stream_audio(req.text, voice_name),
         media_type="audio/mpeg",
     )
 
 
 @router.get("/audio/{filename}")
 async def get_audio(filename: str):
-    path = tts_service.get_audio_path(filename)
+    path = get_tts_engine().get_audio_path(filename)
     if not path.exists():
         raise HTTPException(status_code=404, detail="音檔不存在")
 
