@@ -23,3 +23,7 @@ tts:
     default_voice: zh-TW-HsiaoChenNeural
     retry_count: 3
     retry_delay_seconds: 2
+  kokoro:
+    model_path: models/kokoro-v1.0.onnx
+    voices_path: models/voices-v1.0.bin
+    voice: af_heart

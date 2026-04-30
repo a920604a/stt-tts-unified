@@ -1,8 +1,10 @@
 from functools import lru_cache
+from typing import Union
 
 from ..config import get_settings
 from .whisper_service import WhisperEngine
 from .tts_service import EdgeTTSEngine
+from .kokoro_service import KokoroEngine
 
 
 @lru_cache
@@ -19,7 +21,7 @@ def get_stt_engine() -> WhisperEngine:
 
 
 @lru_cache
-def get_tts_engine() -> EdgeTTSEngine:
+def get_tts_engine() -> Union[EdgeTTSEngine, KokoroEngine]:
     settings = get_settings()
     engine = settings.tts.engine
     if engine == "edge-tts":
@@ -29,4 +31,11 @@ def get_tts_engine() -> EdgeTTSEngine:
             retry_count=settings.tts.edge_tts.retry_count,
             retry_delay_seconds=settings.tts.edge_tts.retry_delay_seconds,
         )
-    raise ValueError(f"Unknown TTS engine: '{engine}'. Available: edge-tts")
+    if engine == "kokoro":
+        return KokoroEngine(
+            model_path=settings.tts.kokoro.model_path,
+            voices_path=settings.tts.kokoro.voices_path,
+            audio_dir=settings.storage.audio_dir,
+            default_voice=settings.tts.kokoro.voice,
+        )
+    raise ValueError(f"Unknown TTS engine: '{engine}'. Available: edge-tts, kokoro")

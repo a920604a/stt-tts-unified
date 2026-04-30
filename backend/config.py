@@ -36,9 +36,16 @@ class EdgeTTSEngineSettings(BaseModel):
     retry_delay_seconds: int = 2
 
 
+class KokoroEngineSettings(BaseModel):
+    model_path: str = "models/kokoro-v1.0.onnx"
+    voices_path: str = "models/voices-v1.0.bin"
+    voice: str = "af_heart"
+
+
 class TTSSettings(BaseModel):
     engine: str = "edge-tts"
     edge_tts: EdgeTTSEngineSettings = EdgeTTSEngineSettings()
+    kokoro: KokoroEngineSettings = KokoroEngineSettings()
 
 
 class Settings(BaseSettings):
