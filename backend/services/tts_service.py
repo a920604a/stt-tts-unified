@@ -64,7 +64,7 @@ class EdgeTTSEngine:
             raise last_exc
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        audio_filename = f"tts_{timestamp}.wav"
+        audio_filename = f"tts_{timestamp}.mp3"
         srt_filename = f"tts_{timestamp}.srt"
 
         (self.audio_dir / audio_filename).write_bytes(audio_bytes)
